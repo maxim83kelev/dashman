@@ -1,7 +1,8 @@
-name: Android APK (Buildozer)
+Kelev Cz, [28.09.2025 23:04]
+name: Build Dashman APK
 
 on:
-  workflow_dispatch:    # позволяет запускать вручную из Actions
+  workflow_dispatch:   # запуск вручную из Actions
   push:
     branches: [ main ]
     paths:
@@ -14,22 +15,99 @@ on:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+
+    env:
+      ANDROID_SDK_ROOT: ${{ runner.home }}/android-sdk
+      ANDROID_NDK_ROOT: ${{ runner.home }}/android-ndk
+      ANDROIDNDK:       ${{ runner.home }}/android-ndk
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+      PATH: ${{ runner.home }}/.local/bin:${{ runner.home }}/android-sdk/cmdline-tools/latest/bin:${{ runner.home }}/android-sdk/platform-tools:${{ runner.home }}/android-sdk/build-tools/31.0.0:${{ runner.home }}/android-ndk:$PATH
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure filenames
+      - name: Ensure filenames (main.py / service)
         run: |
           set -e
           if [ -f "dashaman.py" ] && [ ! -f "main.py" ]; then mv "dashaman.py" "main.py"; fi
+          if [ -f "dashaman (10).py" ] && [ ! -f "main.py" ]; then mv "dashaman (10).py" "main.py"; fi
           if [ -f "service_hotword (2).py" ] && [ ! -f "service_hotword.py" ]; then mv "service_hotword (2).py" "service_hotword.py"; fi
           ls -la
 
-      - name: Build with Buildozer
-        uses: artemsb/gh-action-buildozer@v1
-        with:
-          command: buildozer -v android debug
-        
+      - name: Install system deps (Java, tools)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y openjdk-17-jdk unzip zip git build-essential python3-venv python3-pip libssl-dev libffi-dev liblzma-dev zlib1g-dev
+
+      - name: Install Python deps (buildozer + p4a)
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install "Cython==0.29.36" "buildozer==1.5.0" "python-for-android==2024.06.03" virtualenv
+
+      - name: Install Android SDK cmdline-tools
+        run: |
+          set -e
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          curl -L -o /tmp/clt.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q /tmp/clt.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" --licenses
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-31" "build-tools;31.0.0"
+
+      - name: Install Android NDK r25c
+        run: |
+          set -e
+          mkdir -p "$ANDROID_NDK_ROOT"
+          curl -L -o /tmp/ndk.zip https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
+          unzip -q /tmp/ndk.zip -d "${HOME}"
+          mv "${HOME}/android-ndk-r25c" "$ANDROID_NDK_ROOT"
+
+      - name: Patch buildozer.spec (safe defaults)
+        run: |
+          set -e
+          test -f buildozer.spec || { echo "::error::buildozer.spec not found"; exit 1; }
+          # requirements
+          if grep -q '^requirements' buildozer.spec; then
+            sed -i 's|^requirements *=.*|requirements = python3,kivy,pyjnius,plyer|' buildozer.spec
+          else
+            echo 'requirements = python3,kivy,pyjnius,plyer' >> buildozer.spec
+          fi
+          # permissions
+          if grep -q '^android.permissions' buildozer.spec; then
+            sed -i 's|^android.permissions *=.*|android.permissions = INTERNET,RECORD_AUDIO,FOREGROUND_SERVICE,WAKE_LOCK,VIBRATE,RECEIVE_BOOT_COMPLETED,POST_NOTIFICATIONS|' buildozer.spec
+          else
+            echo 'android.permissions = INTERNET,RECORD_AUDIO,FOREGROUND_SERVICE' >> buildozer.spec
+          fi
+          # services/manifest: если нет файла сервиса — убрать services
+          if [ -f service_hotword.py ]; then
+            grep -q '^services' buildozer.spec && sed -i 's|^services *=.*|services = hotword:service_hotword.py|' buildozer.spec || echo 'services = hotword:service_hotword.py' >> buildozer.spec
+          grep -q '^android.add_src' buildozer.spec && sed -i 's|^android.add_src *=.*|android.add_src = manifest_additions.xml|' buildozer.spec || echo 'android.add_src = manifest_additions.xml' >> buildozer.spec
+          else
+            sed -i '/^services *=/d' buildozer.spec || true
+          fi
+          # архитектура (одна ABI для стабильности)
+          grep -q '^android.archs' buildozer.spec && sed -i 's|^android.archs *=.*|android.archs = armeabi-v7a|' buildozer.spec || echo 'android.archs = armeabi-v7a' >> buildozer.spec
+          # убрать старое ndk-поле и прописать путь на r25c
+          sed -i '/^android\.ndk[[:space:]]*=/d' buildozer.spec || true
+          if grep -q '^android.ndk_path' buildozer.spec; then
+            sed -i "s|^android\.ndk_path.*|android.ndk_path = $ANDROID_NDK_ROOT|" buildozer.spec
+          else
+            echo "android.ndk_path = $ANDROID_NDK_ROOT" >> buildozer.spec
+          fi
+          # api/minapi/ndk_api — если нет, добавим
+          grep -q '^android.api' buildozer.spec     || echo 'android.api = 31' >> buildozer.spec
+          grep -q '^android.minapi' buildozer.spec  || echo 'android.minapi = 27' >> buildozer.spec
+          grep -q '^android.ndk_api' buildozer.spec || echo 'android.ndk_api = 27' >> buildozer.spec
+
+          echo "===== buildozer.spec (head) ====="
+          sed -n '1,140p' buildozer.spec
+
+      - name: Build APK (verbose)
+        run: |
+          set -e
+          yes | buildozer -v android debug --accept-android-license
+
       - name: Upload APK artifact
         if: always()
         uses: actions/upload-artifact@v4
