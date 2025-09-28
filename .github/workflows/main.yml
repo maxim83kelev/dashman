@@ -26,7 +26,7 @@ jobs:
           ls -la
 
       - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1.3
+        uses: artemsb1982/buildozer-action@v1.2.0
         with:
           buildozer_version: 1.5.0
           command: buildozer -v android debug
