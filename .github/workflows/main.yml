@@ -26,13 +26,10 @@ jobs:
           ls -la
 
       - name: Build with Buildozer
-        uses: artemsb1982/buildozer-action@v1.2.0
+        uses: artemsb/gh-action-buildozer@v1
         with:
-          buildozer_version: 1.5.0
           command: buildozer -v android debug
-        env:
-          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-
+        
       - name: Upload APK artifact
         if: always()
         uses: actions/upload-artifact@v4
