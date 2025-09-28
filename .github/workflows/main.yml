@@ -1,33 +1,67 @@
-name: Build Dashman APK
+name: Android APK (Buildozer)
 
 on:
-  workflow_dispatch:  # запуск вручную
+  workflow_dispatch:    # запуск вручную
+  push:
+    branches: [ main, master ]
+    paths:
+      - '**.py'
+      - '**.kv'
+      - 'buildozer.spec'
+      - 'manifest_additions.xml'
+      - '.github/workflows/android-build.yml'
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
+      - name: Ensure filenames
+        run: |
+          set -e
+          if [ -f "dashaman.py" ] && [ ! -f "main.py" ]; then mv "dashaman.py" "main.py"; fi
+          if [ -f "dashaman (10).py" ] && [ ! -f "main.py" ]; then mv "dashaman (10).py" "main.py"; fi
+          if [ -f "service_hotword (2).py" ] && [ ! -f "service_hotword.py" ]; then mv "service_hotword (2).py" "service_hotword.py"; fi
+          ls -la
 
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y python3-pip openjdk-17-jdk unzip git
-        pip install buildozer cython==0.29.33
+      - name: Patch buildozer.spec
+        run: |
+          set -e
+          test -f buildozer.spec || { echo "::error::buildozer.spec not found"; exit 1; }
+          # requirements
+          sed -i 's|^requirements *=.*|requirements = python3,kivy,pyjnius,plyer|' buildozer.spec || true
+          grep -q '^requirements' buildozer.spec || echo 'requirements = python3,kivy,pyjnius,plyer' >> buildozer.spec
+          # permissions
+          sed -i 's|^android.permissions *=.*|android.permissions = INTERNET,RECORD_AUDIO,FOREGROUND_SERVICE,WAKE_LOCK,VIBRATE,RECEIVE_BOOT_COMPLETED,POST_NOTIFICATIONS|' buildozer.spec || true
+          grep -q '^android.permissions' buildozer.spec || echo 'android.permissions = INTERNET,RECORD_AUDIO,FOREGROUND_SERVICE' >> buildozer.spec
+          # services/manifest
+          if [ -f service_hotword.py ]; then
+            grep -q '^services' buildozer.spec && sed -i 's|^services *=.*|services = hotword:service_hotword.py|' buildozer.spec || echo 'services = hotword:service_hotword.py' >> buildozer.spec
+            grep -q '^android.add_src' buildozer.spec && sed -i 's|^android.add_src *=.*|android.add_src = manifest_additions.xml|' buildozer.spec || echo 'android.add_src = manifest_additions.xml' >> buildozer.spec
+          else
+            sed -i '/^services *=/d' buildozer.spec || true
+          fi
+          # архитектура и очистка старого ndk-поля
+          grep -q '^android.archs' buildozer.spec && sed -i 's|^android.archs *=.*|android.archs = armeabi-v7a|' buildozer.spec || echo 'android.archs = armeabi-v7a' >> buildozer.spec
+          sed -i '/^android\.ndk[[:space:]]*=/d' buildozer.spec || true
+          echo "===== buildozer.spec (head) ====="
+          head -n 120 buildozer.spec
 
-    - name: Build APK
-      run: |
-        buildozer -v android debug
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1.3
+        with:
+          buildozer_version: 1.5.0
+          command: buildozer -v android debug
+        env:
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v3
-      with:
-        name: Dashman-APK
-        path: bin/*.apk
+      - name: Upload APK artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashman-apk
+          path: bin/*.apk
+          if-no-files-found: warn
