@@ -1,0 +1,230 @@
+#:kivy 2.1.0
+#:import Clock kivy.clock.Clock
+#:import Animation kivy.animation.Animation
+
+# =================== Palette ===================
+#:set ACCENT_DARK (0.55, 0.07, 0.10, 1)
+#:set ACCENT_DARKER (0.40, 0.05, 0.08, 1)
+#:set BG_DARK (0.06, 0.07, 0.09, 1)
+#:set PANEL (0.12, 0.12, 0.16, 1)
+
+<StatusBar@BoxLayout>:
+    size_hint_y: None
+    height: dp(36)
+    padding: dp(10), 0
+    canvas.before:
+        Color: rgba: PANEL
+        Rectangle: pos: self.pos; size: self.size
+    Label:
+        id: status_lbl
+        text: app.status_text if hasattr(app, 'status_text') and app.status_text else "Готов."
+        color: 1, 1, 1, 1
+        halign: "left"
+        valign: "middle"
+        text_size: self.size
+        font_size: '14sp'
+
+<ReminderItem@BoxLayout>:
+    text: ""
+    time: ""
+    priority: "low"
+    size_hint_y: None
+    height: dp(56)
+    padding: dp(10)
+    spacing: dp(10)
+    canvas.before:
+        Color: rgba: (0.18, 0.19, 0.23, 1)
+        Rectangle: pos: self.pos; size: self.size
+    Label:
+        text: root.text
+        text_size: self.size
+        valign: 'middle'
+        halign: 'left'
+        color: (1, 0.35, 0.35, 1) if root.priority == 'critical' else                (1, 0.65, 0.25, 1) if root.priority == 'high' else                (0.9, 0.9, 0.95, 1)
+    Label:
+        size_hint_x: None
+        width: dp(120)
+        text: root.time
+        halign: 'right'
+        valign: 'middle'
+        text_size: self.size
+        color: 0.85, 0.85, 0.9, 1
+
+<SplashScreen@Screen>:
+    name: "splash"
+    on_enter:
+        # Всегда идём на main через 2 сек — лицензия тихо проверяется в фоне
+        Clock.schedule_once(lambda dt: setattr(app.root, 'current', 'main'), 2)
+    BoxLayout:
+        orientation: "vertical"
+        padding: dp(20)
+        spacing: dp(20)
+        canvas.before:
+            Color: rgba: BG_DARK
+            Rectangle: pos: self.pos; size: self.size
+        Widget: size_hint_y: 0.15
+        AnchorLayout:
+            size_hint_y: 0.55
+            Image:
+                source: "splash.png"
+                allow_stretch: True
+                keep_ratio: True
+        Label:
+            text: "Dashman"
+            font_size: "26sp"
+            color: 1,1,1,1
+            size_hint_y: None
+            height: dp(30)
+        Label:
+            text: "Загружаюсь..."
+            color: 0.8, 0.8, 0.9, 1
+            size_hint_y: None
+            height: dp(24)
+
+# Если лицензия отозвана — показываем экран блокировки и периодически пытаемся вернуться
+<BlockedScreen@Screen>:
+    name: "blocked"
+    on_enter:
+        # автоповтор проверки каждые 10 сек
+        import kivy.clock as _kc
+        self._retry_ev = _kc.Clock.schedule_interval(lambda dt:
+            setattr(app.root, 'current', 'main') if (hasattr(app,'config_data') and app.config_data.get('license',{}).get('last_status')=='ok') else None, 10)
+    on_leave:
+        # останавливаем таймер
+        import kivy.clock as _kc
+        _kc.Clock.unschedule(self._retry_ev) if hasattr(self, '_retry_ev') else None
+    BoxLayout:
+        orientation: "vertical"
+        padding: dp(16)
+        spacing: dp(10)
+        canvas.before:
+            Color: rgba: BG_DARK
+            Rectangle: pos: self.pos; size: self.size
+        BoxLayout:
+            size_hint_y: None
+            height: dp(48)
+            padding: dp(8)
+            Label:
+                text: "Доступ заблокирован"
+                color: 1, 0.35, 0.35, 1
+                font_size: "18sp"
+        BoxLayout:
+            size_hint_y: None
+            height: dp(22)
+            padding: dp(5), 0
+            Label:
+                text: ("Причина: " + (app.activation_message if hasattr(app,'activation_message') and app.activation_message else "лицензия отсутствует/отозвана"))
+                font_size: "12sp"
+                color: 0.95, 0.75, 0.75, 1
+        BoxLayout:
+            size_hint_y: None
+            height: dp(22)
+            padding: dp(5), 0
+            Label:
+                text: "ID: " + (app.config_data.get("device_id","") if hasattr(app,"config_data") else "")
+                font_size: "12sp"
+                color: 0.85,0.85,0.95,1
+        Widget:
+        BoxLayout:
+            size_hint_y: None
+            height: dp(44)
+            spacing: dp(8)
+            padding: dp(8)
+            Button:
+                text: "Повторить сейчас"
+                background_normal: ''
+                background_color: ACCENT_DARK
+                on_release: setattr(app.root, 'current', 'main')
+            Button:
+                text: "Выход"
+                background_normal: ''
+                background_color: ACCENT_DARKER
+                on_release: app.stop() if hasattr(app,'stop') else None
+
+<MainScreen@Screen>:
+    name: "main"
+    # На входе/периодически проверяем статус и уходим в blocked, если стало плохо
+    on_enter:
+        import kivy.clock as _kc
+        self._guard_ev = _kc.Clock.schedule_interval(lambda dt:
+            setattr(app.root, 'current', 'blocked') if (hasattr(app,'config_data') and app.config_data.get('license',{}).get('last_status')=='revoked') else None, 10)
+    on_leave:
+        import kivy.clock as _kc
+        _kc.Clock.unschedule(self._guard_ev) if hasattr(self, '_guard_ev') else None
+    BoxLayout:
+        orientation: "vertical"
+        canvas.before:
+            Color: rgba: BG_DARK
+            Rectangle: pos: self.pos; size: self.size
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(44)
+            padding: dp(10), 0
+            Label:
+                text: "Voice Reminder"
+                color: 1,1,1,1
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.size
+
+        # Индикатор лицензии
+        BoxLayout:
+            size_hint_y: None
+            height: dp(20)
+            padding: dp(5), 0
+            Label:
+                text: "Лицензия: " + (app.config_data.get("license",{}).get("last_status","unknown") if hasattr(app,"config_data") else "unknown")
+                font_size: "12sp"
+                color: (0,1,0,1) if app.config_data.get("license",{}).get("last_status")=="ok" else                        (1,1,0,1) if app.config_data.get("license",{}).get("last_status") in ("unknown","pending") else                        (1,0,0,1)
+
+        BoxLayout:
+            orientation: 'vertical'
+            padding: dp(8)
+            spacing: dp(8)
+            RecycleView:
+                id: reminders_rv
+                viewclass: "ReminderItem"
+                data: [{'text': r.get('text',''),
+                        'time': app.format_time(r.get('when','')) if hasattr(app, 'format_time') else (r.get('when','') or r.get('time','')),
+                        'priority': r.get('priority','low')} for r in (app.get_upcoming() if hasattr(app,'get_upcoming') else [])]
+                bar_width: dp(6)
+                scroll_type: ['bars', 'content']
+                effect_cls: "ScrollEffect"
+                RecycleBoxLayout:
+                    default_size: None, dp(56)
+                    default_size_hint: 1, None
+                    size_hint_y: None
+                    height: self.minimum_height
+                    orientation: 'vertical'
+            Label:
+                size_hint_y: None
+                height: dp(24)
+                text: app.status_text if hasattr(app,'status_text') and app.status_text else ""
+                color: 0.8,0.8,0.9,1
+
+        FloatLayout:
+            size_hint_y: None
+            height: dp(0)
+            Button:
+                id: mic_btn
+                text: "🎤 Сказать" if not (hasattr(app, "is_listening") and app.is_listening) else "🎤 Слушаю…"
+                size_hint: None, None
+                size: dp(140), dp(50)
+                pos_hint: {"right": 0.98, "y": 0.02}
+                background_normal: ''
+                background_color: ACCENT_DARK
+                # Пульс только при прослушивании
+                on_kv_post:
+                    import kivy.clock as _kc
+                    self._pulse_ev = _kc.Clock.schedule_interval(lambda dt:
+                        (Animation.cancel_all(self) or True) and
+                        ((Animation(opacity=0.85, duration=0.5) + Animation(opacity=1.0, duration=0.5)).start(self)
+                         if (hasattr(app,'is_listening') and app.is_listening) else setattr(self,'opacity',1.0)), 0.4)
+                on_release: app.on_mic_tap() if hasattr(app, "on_mic_tap") else None
+
+ScreenManager:
+    id: sm
+    SplashScreen:
+    BlockedScreen:
+    MainScreen:

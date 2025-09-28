@@ -1,0 +1,7 @@
+<manifest>
+  <application>
+    <service
+      android:name="org.kivy.android.PythonService"
+      android:foregroundServiceType="microphone" />
+  </application>
+</manifest>
