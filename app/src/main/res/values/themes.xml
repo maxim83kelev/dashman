@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Обычная тема приложения -->
+    <style name="Theme.Dashman" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+
+    <!-- Тема сплэша (показывается ДО Compose) -->
+    <style name="Theme.Dashman.Splash" parent="Theme.SplashScreen">
+        <!-- ВАЖНО: для Android 11 и ниже (starting window) -->
+        <item name="android:windowBackground">@drawable/splash_background</item>
+
+        <!-- Android 12+ -->
+        <item name="windowSplashScreenBackground">@color/black</item>
+
+        <!-- НИЧЕГО не рисуем по центру -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_empty</item>
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+
+        <!-- После системного сплэша переходим на обычную тему -->
+        <item name="postSplashScreenTheme">@style/Theme.Dashman</item>
+    </style>
+
+</resources>

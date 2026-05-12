@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Android 12+ Splash -->
+    <style name="Theme.Dashman.Splash" parent="Theme.SplashScreen">
+        <!-- фон сплэша -->
+        <item name="windowSplashScreenBackground">@color/black</item>
+
+        <!-- ВОТ ЭТО УБИВАЕТ ИКОНКУ ПО ЦЕНТРУ -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_empty</item>
+
+        <!-- по желанию: убрать анимацию системы -->
+        <item name="windowSplashScreenAnimationDuration">0</item>
+
+        <!-- тема после сплэша -->
+        <item name="postSplashScreenTheme">@style/Theme.Dashman</item>
+    </style>
+
+</resources>
