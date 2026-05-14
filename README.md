@@ -48,14 +48,14 @@ Download the latest APK from Releases and install on Android 8.0+.
 Allow installation from unknown sources if prompted.
 
 About the Author
-I'm Maxim — a construction worker from Brno, Czech Republic (originally from Ukraine). I started coding Android apps on the side with one goal: move into IT.
+I'm Maxim — a construction worker from Brno, Czech Republic. I started coding Android apps on the side with one goal: move into IT.
 Dashman started as a Python script and was rewritten from scratch in Kotlin. It's a real product used by real people — not a tutorial project.
 I'm currently building my QA portfolio and open to junior QA / junior Android developer roles.
 📬 Telegram: @kelevJob
 Changelog
-VersionNotesv1.0Initial public release. Voice reminders, repeat rules, freemium licensing, auto-updates, backup/restore
+Initial public release. Voice reminders, repeat rules, freemium licensing, auto-updates, backup/restore
 
-🇷🇺 Русский
+
 Что такое Dashman?
 Dashman — голосовая напоминалка для Android. Управляется голосом. Просто скажи что нужно сделать — Дашман сам разберётся со временем, датой и повторами. Без форм, без тапов, без шаблонов.
 Нажал. Сказал. Забыл. В нужный момент вспомнил.
@@ -79,11 +79,11 @@ Dashman — голосовая напоминалка для Android. Управ
 При установке разреши источники из неизвестных источников.
 
 Об авторе
-Меня зовут Максим. Строитель из Брно, Чехия (приехал из Украины в 2022). Пишу Android-приложения параллельно со стройкой — с целью перейти в IT.
+Меня зовут Максим. Строитель из Брно, Чехия. Пишу Android-приложения параллельно со стройкой — с целью перейти в IT.
 Dashman начинался как Python-скрипт и был переписан с нуля на Kotlin. Это реальный продукт, которым пользуются реальные люди — не учебный проект.
 Сейчас строю портфолио в QA и открыт к предложениям junior QA / junior Android developer.
 📬 Telegram: @kelevJob
 История версий
-ВерсияЧто сделаноv1.0Первый публичный релиз. Голосовые напоминания, правила повтора, freemium-лицензирование, автообновления, бэкап/восстановление
+ВерсияЧто сделано:Первый публичный релиз. Голосовые напоминания, правила повтора, freemium-лицензирование, автообновления, бэкап/восстановление
 
 Dashman — живой продукт в разработке. Баги есть. Работаю над ними.
